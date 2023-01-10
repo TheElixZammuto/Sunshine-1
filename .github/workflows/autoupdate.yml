@@ -47,6 +47,6 @@ jobs:
 
       - name: rebase
         if: ${{ steps.label.outputs.central_dep == false }}
-        uses: "bbeesley/gha-auto-dependabot-rebase@v1.2.0"
+        uses: "bbeesley/gha-auto-dependabot-rebase@v1.3.11"
         env:
           GITHUB_TOKEN: ${{ secrets.GH_BOT_TOKEN }}
