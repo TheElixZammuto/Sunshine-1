@@ -1,13 +1,13 @@
 <div id="content" class="container">
   <h1 class="my-4">Hello, Sunshine!</h1>
   <p>Sunshine is a self-hosted game stream host for Moonlight.</p>
-  <div class="alert alert-danger">
+  <div class="alert alert-danger" v-if="fancyLogs.find(x => x.level === 'Fatal')">
 	  <div style="line-height: 32px;">
 	    <i class="fas fa-circle-exclamation" style="font-size: 32px;margin-right: 0.25em;"></i>
 	    <b>Attention!</b> Sunshine detected these errors during startup. These errors <b>MUST</b> be fixed before using Sunshine.<br>
 	   </div>
 	  <ul>
-		  <li v-for="v in fancyLogs.filter(x => x.level === 'Error')">{{v.value}}</li>
+		  <li v-for="v in fancyLogs.filter(x => x.level === 'Fatal')">{{v.value}}</li>
 	  </ul>
   </div>
   <!--Version-->
