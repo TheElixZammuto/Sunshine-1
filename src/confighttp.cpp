@@ -603,6 +603,38 @@ namespace confighttp {
   }
 
   void
+  serverSentEvents(resp_https_t response, req_https_t request) {
+    if (!authenticate(response, request)) return;
+
+    print_req(request);
+
+    std::thread work_thread([response] {
+      response->close_connection_after_response = true;  // Unspecified content length
+
+      // Send header
+      response->write({ { "Content-Type", "text/event-stream" } });
+      std::promise<bool> error;
+      response->send([&error](const SimpleWeb::error_code &ec) {
+        error.set_value(static_cast<bool>(ec));
+      });
+      if (error.get_future().get())
+        return;  // return if error on sending headers
+
+      while (true) {
+        std::this_thread::sleep_for(std::chrono::seconds(1));
+        *response << "data: testing\n\n";
+        std::promise<bool> error;
+        response->send([&error](const SimpleWeb::error_code &ec) {
+          error.set_value(static_cast<bool>(ec));
+        });
+        if (error.get_future().get())  // If ec above indicates error
+          break;
+      }
+    });
+    work_thread.detach();
+  }
+
+  void
   savePassword(resp_https_t response, req_https_t request) {
     if (!config::sunshine.username.empty() && !authenticate(response, request)) return;
 
@@ -734,6 +766,7 @@ namespace confighttp {
     auto address_family = net::af_from_enum_string(config::sunshine.address_family);
 
     https_server_t server { config::nvhttp.cert, config::nvhttp.pkey };
+    server.config.timeout_content = 0; //Required for SSE
     server.default_resource["GET"] = not_found;
     server.resource["^/$"]["GET"] = getIndexPage;
     server.resource["^/pin$"]["GET"] = getPinPage;
@@ -755,6 +788,7 @@ namespace confighttp {
     server.resource["^/api/clients/unpair$"]["POST"] = unpairAll;
     server.resource["^/api/apps/close$"]["POST"] = closeApp;
     server.resource["^/api/covers/upload$"]["POST"] = uploadCover;
+    server.resource["^/api/events$"]["GET"] = serverSentEvents;
     server.resource["^/images/favicon.ico$"]["GET"] = getFaviconImage;
     server.resource["^/images/logo-sunshine-45.png$"]["GET"] = getSunshineLogoImage;
     server.resource["^/node_modules\\/.+$"]["GET"] = getNodeModules;
