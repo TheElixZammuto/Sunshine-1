@@ -609,6 +609,14 @@ namespace confighttp {
     print_req(request);
 
     std::thread work_thread([response] {
+      long last_timestamp = 0;
+      
+      auto server_events = mail::man->event<mail::timed_event_t>(mail::server_events);
+      if(server_events->peek()){
+        auto t = server_events->view().value();
+        last_timestamp = t.timestamp;
+      }
+      
       response->close_connection_after_response = true;  // Unspecified content length
 
       // Send header
@@ -620,9 +628,13 @@ namespace confighttp {
       if (error.get_future().get())
         return;  // return if error on sending headers
 
+      *response << "data: Hello Sunshine!\n\n";
       while (true) {
-        std::this_thread::sleep_for(std::chrono::seconds(1));
-        *response << "data: testing\n\n";
+        if(!server_events->peek())continue;
+        auto event = server_events->view().value();
+        if(event.timestamp == last_timestamp) continue;
+        last_timestamp = event.timestamp;
+        *response << "data: " << event.event_name << "\n\n";
         std::promise<bool> error;
         response->send([&error](const SimpleWeb::error_code &ec) {
           error.set_value(static_cast<bool>(ec));

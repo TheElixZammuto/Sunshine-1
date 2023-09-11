@@ -64,6 +64,7 @@ namespace mail {
   MAIL(video_packets);
   MAIL(audio_packets);
   MAIL(switch_display);
+  MAIL(server_events);
 
   // Local mail
   MAIL(touch_port);
@@ -72,7 +73,10 @@ namespace mail {
   MAIL(gamepad_feedback);
   MAIL(hdr);
 #undef MAIL
-
+  struct timed_event_t {
+    long timestamp;
+    std::string event_name;
+  };
 }  // namespace mail
 
 namespace lifetime {

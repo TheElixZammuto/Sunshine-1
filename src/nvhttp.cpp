@@ -517,6 +517,11 @@ namespace nvhttp {
           getservercert(ptr->second, tree, pin);
         }
         else {
+          auto server_events = mail::man->event<mail::timed_event_t>(mail::server_events);
+          mail::timed_event_t e;
+          e.timestamp = time(NULL);
+          e.event_name = "pin_requested";
+          server_events->raise(e);
           ptr->second.async_insert_pin.response = std::move(response);
 
           fg.disable();
