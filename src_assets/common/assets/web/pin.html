@@ -8,6 +8,12 @@
         id="pin-input"
         class="form-control my-4"
       />
+      <input
+        type="text"
+        placeholder="Name"
+        id="name-input"
+        class="form-control my-4"
+      />
       <button class="btn btn-primary">Send</button>
     </div>
     <div class="alert alert-warning">
@@ -23,8 +29,9 @@
   document.querySelector("#form").addEventListener("submit", (e) => {
     e.preventDefault();
     let pin = document.querySelector("#pin-input").value;
+    let name = document.querySelector("#name-input").value;
     document.querySelector("#status").innerHTML = "";
-    let b = JSON.stringify({ pin: pin });
+    let b = JSON.stringify({ pin: pin, name: name });
     fetch("/api/pin", { method: "POST", body: b })
       .then((response) => response.json())
       .then((response) => {

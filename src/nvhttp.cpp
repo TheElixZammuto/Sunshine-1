@@ -114,13 +114,15 @@ namespace nvhttp {
 
   struct client_t {
     std::string uniqueID;
-    std::vector<std::string> certs;
+    std::string cert;
+    std::string name;
   };
 
   struct pair_session_t {
     struct {
       std::string uniqueID;
       std::string cert;
+      std::string name;
     } client;
 
     std::unique_ptr<crypto::aes_t> cipher_key;
@@ -140,7 +142,7 @@ namespace nvhttp {
 
   // uniqueID, session
   std::unordered_map<std::string, pair_session_t> map_id_sess;
-  std::unordered_map<std::string, client_t> map_id_client;
+  std::vector<client_t> clients;
 
   using args_t = SimpleWeb::CaseInsensitiveMultimap;
   using resp_https_t = std::shared_ptr<typename SimpleWeb::ServerBase<SimpleWeb::HTTPS>::Response>;
@@ -184,18 +186,12 @@ namespace nvhttp {
 
     root.put("root.uniqueid", http::unique_id);
     auto &nodes = root.add_child("root.devices", pt::ptree {});
-    for (auto &[_, client] : map_id_client) {
+    for (auto &client : clients) {
       pt::ptree node;
 
       node.put("uniqueid"s, client.uniqueID);
-
-      pt::ptree cert_nodes;
-      for (auto &cert : client.certs) {
-        pt::ptree cert_node;
-        cert_node.put_value(cert);
-        cert_nodes.push_back(std::make_pair(""s, cert_node));
-      }
-      node.add_child("certs"s, cert_nodes);
+      node.put("cert"s, client.cert);
+      node.put("name"s, client.name);
 
       nodes.push_back(std::make_pair(""s, node));
     }
@@ -239,26 +235,29 @@ namespace nvhttp {
 
     for (auto &[_, device_node] : device_nodes) {
       auto uniqID = device_node.get<std::string>("uniqueid");
-      auto &client = map_id_client.emplace(uniqID, client_t {}).first->second;
-
-      client.uniqueID = uniqID;
-
-      for (auto &[_, el] : device_node.get_child("certs")) {
-        client.certs.emplace_back(el.get_value<std::string>());
-      }
+      client_t cl;
+      //TODO Handle old json path
+      cl.cert = device_node.get_child("cert").get_value<std::string>();
+      cl.uniqueID = device_node.get_child("uniqueid").get_value<std::string>();
+      cl.name = device_node.get_child("name").get_value<std::string>();
+      //cl.cert = device_node.get_child_optional("uniqueid").get_value<std::string>();
+      auto &client = clients.emplace_back(cl);
     }
   }
 
   void
-  update_id_client(const std::string &uniqueID, std::string &&cert, op_e op) {
+  update_id_client(const std::string &uniqueID, std::string &&cert, op_e op, const std::string &name) {
     switch (op) {
       case op_e::ADD: {
-        auto &client = map_id_client[uniqueID];
-        client.certs.emplace_back(std::move(cert));
+        client_t client;
+        client.cert = std::move(cert);
         client.uniqueID = uniqueID;
+        client.name = name;
+        clients.emplace_back(client);
       } break;
       case op_e::REMOVE:
-        map_id_client.erase(uniqueID);
+        // TODO Handle me
+        // map_id_client.erase(uniqueID);
         break;
     }
 
@@ -299,7 +298,7 @@ namespace nvhttp {
   }
 
   void
-  getservercert(pair_session_t &sess, pt::ptree &tree, const std::string &pin) {
+  getservercert(pair_session_t &sess, pt::ptree &tree, const std::string &pin,const std::string &name) {
     if (sess.async_insert_pin.salt.size() < 32) {
       tree.put("root.paired", 0);
       tree.put("root.<xmlattr>.status_code", 400);
@@ -313,6 +312,7 @@ namespace nvhttp {
 
     auto key = crypto::gen_aes_key(salt, pin);
     sess.cipher_key = std::make_unique<crypto::aes_t>(key);
+    sess.client.name = name;
 
     tree.put("root.paired", 1);
     tree.put("root.plaincert", util::hex_vec(conf_intern.servercert, true));
@@ -405,7 +405,7 @@ namespace nvhttp {
 
       auto it = map_id_sess.find(client.uniqueID);
 
-      update_id_client(client.uniqueID, std::move(client.cert), op_e::ADD);
+      update_id_client(client.uniqueID, std::move(client.cert), op_e::ADD, client.name);
       map_id_sess.erase(it);
     }
     else {
@@ -514,7 +514,7 @@ namespace nvhttp {
           std::cout << "Please insert pin: "sv;
           std::getline(std::cin, pin);
 
-          getservercert(ptr->second, tree, pin);
+          getservercert(ptr->second, tree, pin,"");
         }
         else {
 #if defined SUNSHINE_TRAY && SUNSHINE_TRAY >= 1
@@ -557,14 +557,14 @@ namespace nvhttp {
    * ```
    */
   bool
-  pin(std::string pin) {
+  pin(std::string pin,std::string name) {
     pt::ptree tree;
     if (map_id_sess.empty()) {
       return false;
     }
 
     auto &sess = std::begin(map_id_sess)->second;
-    getservercert(sess, tree, pin);
+    getservercert(sess, tree, pin, name);
 
     // response to the request for pin
     std::ostringstream data;
@@ -604,7 +604,7 @@ namespace nvhttp {
       return;
     }
 
-    bool pinResponse = pin(request->path_match[1]);
+    bool pinResponse = pin(request->path_match[1],"");
     if (pinResponse) {
       response->write(SimpleWeb::StatusCode::success_ok);
     }
@@ -624,8 +624,11 @@ namespace nvhttp {
       auto clientID = args.find("uniqueid"s);
 
       if (clientID != std::end(args)) {
-        if (auto it = map_id_client.find(clientID->second); it != std::end(map_id_client)) {
-          pair_status = 1;
+        for (auto c : clients) {
+          if (clientID->second == c.uniqueID) {
+            pair_status = 1;
+            break;
+          }
         }
       }
     }
@@ -964,10 +967,8 @@ namespace nvhttp {
     conf_intern.servercert = read_file(config::nvhttp.cert.c_str());
 
     crypto::cert_chain_t cert_chain;
-    for (auto &[_, client] : map_id_client) {
-      for (auto &cert : client.certs) {
-        cert_chain.add(crypto::x509(cert));
-      }
+    for (auto &client : clients) {
+      cert_chain.add(crypto::x509(client.cert));
     }
 
     auto add_cert = std::make_shared<safe::queue_t<crypto::x509_t>>(30);
@@ -1095,7 +1096,7 @@ namespace nvhttp {
    */
   void
   erase_all_clients() {
-    map_id_client.clear();
+    clients.clear();
     save_state();
   }
 }  // namespace nvhttp

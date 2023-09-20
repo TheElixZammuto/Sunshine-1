@@ -43,7 +43,7 @@ namespace nvhttp {
   void
   start();
   bool
-  pin(std::string pin);
+  pin(std::string pin,std::string name);
   void
   erase_all_clients();
 }  // namespace nvhttp
