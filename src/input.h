@@ -23,7 +23,7 @@ namespace input {
   init();
 
   std::shared_ptr<input_t>
-  alloc(safe::mail_t mail);
+  alloc(safe::mail_t mail,int input_features);
 
   struct touch_port_t: public platf::touch_port_t {
     int env_width, env_height;

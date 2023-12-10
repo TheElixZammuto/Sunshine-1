@@ -1687,9 +1687,13 @@ namespace stream {
       });
 
       BOOST_LOG(debug) << "Waiting for video to end..."sv;
-      session.videoThread.join();
+      if (session.videoThread.joinable()) {
+        session.videoThread.join();
+      }
       BOOST_LOG(debug) << "Waiting for audio to end..."sv;
-      session.audioThread.join();
+      if (session.audioThread.joinable()) {
+        session.audioThread.join();
+      }
       BOOST_LOG(debug) << "Waiting for control to end..."sv;
       session.controlEnd.view();
       // Reset input on session stop to avoid stuck repeated keys
@@ -1746,7 +1750,7 @@ namespace stream {
 
     int
     start(session_t &session, const std::string &addr_string) {
-      session.input = input::alloc(session.mail);
+      session.input = input::alloc(session.mail,session.config.streamFeatures);
 
       session.broadcast_ref = broadcast.ref();
       if (!session.broadcast_ref) {
@@ -1774,8 +1778,12 @@ namespace stream {
 
       session.pingTimeout = std::chrono::steady_clock::now() + config::stream.ping_timeout;
 
-      session.audioThread = std::thread { audioThread, &session };
-      session.videoThread = std::thread { videoThread, &session };
+      if ((session.config.streamFeatures & STREAM_FEATURE_VIDEO) == STREAM_FEATURE_VIDEO) {
+        session.audioThread = std::thread { audioThread, &session };
+      }
+      if ((session.config.streamFeatures & STREAM_FEATURE_AUDIO) == STREAM_FEATURE_VIDEO) {
+        session.videoThread = std::thread { videoThread, &session };
+      }
 
       session.state.store(state_e::RUNNING, std::memory_order_relaxed);
 

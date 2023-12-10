@@ -1,7 +1,7 @@
 [submodule "third-party/moonlight-common-c"]
 	path = third-party/moonlight-common-c
-	url = https://github.com/moonlight-stream/moonlight-common-c.git
-	branch = master
+	url = https://github.com/TheElixZammuto/moonlight-common-c.git
+	branch = stream-features
 [submodule "third-party/Simple-Web-Server"]
 	path = third-party/Simple-Web-Server
 	url = https://gitlab.com/eidheim/Simple-Web-Server.git

@@ -26,6 +26,7 @@ namespace rtsp_stream {
     int surround_info;
     bool enable_hdr;
     bool enable_sops;
+    int stream_features;
   };
 
   void

@@ -26,6 +26,7 @@ namespace stream {
     int controlProtocolType;
     int audioQosType;
     int videoQosType;
+    int streamFeatures;
 
     std::optional<int> gcmap;
   };

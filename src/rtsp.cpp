@@ -662,11 +662,12 @@ namespace rtsp_stream {
     stream::config_t config;
 
     config.audio.flags[audio::config_t::HOST_AUDIO] = launch_session->host_audio;
+    config.streamFeatures = launch_session->stream_features;
     try {
       config.audio.channels = util::from_view(args.at("x-nv-audio.surround.numChannels"sv));
       config.audio.mask = util::from_view(args.at("x-nv-audio.surround.channelMask"sv));
       config.audio.packetDuration = util::from_view(args.at("x-nv-aqos.packetDuration"sv));
-
+      
       config.audio.flags[audio::config_t::HIGH_QUALITY] =
         util::from_view(args.at("x-nv-audio.surround.AudioQuality"sv));
 

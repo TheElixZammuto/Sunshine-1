@@ -152,12 +152,14 @@ namespace input {
     };
 
     input_t(
+      int input_features,
       safe::mail_raw_t::event_t<input::touch_port_t> touch_port_event,
       platf::feedback_queue_t feedback_queue):
         shortcutFlags {},
         gamepads(MAX_GAMEPADS),
         client_context { platf::allocate_client_input_context(platf_input) },
         touch_port_event { std::move(touch_port_event) },
+        input_features { input_features },
         feedback_queue { std::move(feedback_queue) },
         mouse_left_button_timeout {},
         touch_port { { 0, 0, 0, 0 }, 0, 0, 1.0f } {}
@@ -177,6 +179,8 @@ namespace input {
     thread_pool_util::ThreadPool::task_id_t mouse_left_button_timeout;
 
     input::touch_port_t touch_port;
+
+    int input_features;
   };
 
   /**
@@ -449,6 +453,10 @@ namespace input {
       return;
     }
 
+    if((input->input_features & STREAM_FEATURE_INPUT_MOUSE) != STREAM_FEATURE_INPUT_MOUSE){
+      return;
+    }
+
     input->mouse_left_button_timeout = DISABLE_LEFT_BUTTON_DELAY;
     platf::move_mouse(platf_input, util::endian::big(packet->deltaX), util::endian::big(packet->deltaY));
   }
@@ -531,6 +539,10 @@ namespace input {
       return;
     }
 
+    if((input->input_features & STREAM_FEATURE_INPUT_MOUSE) != STREAM_FEATURE_INPUT_MOUSE){
+      return;
+    }
+
     if (input->mouse_left_button_timeout == DISABLE_LEFT_BUTTON_DELAY) {
       input->mouse_left_button_timeout = ENABLE_LEFT_BUTTON_DELAY;
     }
@@ -563,6 +575,10 @@ namespace input {
   void
   passthrough(std::shared_ptr<input_t> &input, PNV_MOUSE_BUTTON_PACKET packet) {
     if (!config::input.mouse) {
+      return;
+    }
+
+    if((input->input_features & STREAM_FEATURE_INPUT_MOUSE) != STREAM_FEATURE_INPUT_MOUSE){
       return;
     }
 
@@ -738,6 +754,10 @@ namespace input {
       return;
     }
 
+    if((input->input_features & STREAM_FEATURE_INPUT_KEYBOARD) != STREAM_FEATURE_INPUT_KEYBOARD){
+      return;
+    }
+
     auto release = util::endian::little(packet->header.magic) == KEY_UP_EVENT_MAGIC;
     auto keyCode = packet->keyCode & 0x00FF;
 
@@ -791,8 +811,12 @@ namespace input {
   }
 
   void
-  passthrough(PNV_SCROLL_PACKET packet) {
+  passthrough(std::shared_ptr<input_t> &input, PNV_SCROLL_PACKET packet) {
     if (!config::input.mouse) {
+      return;
+    }
+
+    if((input->input_features & STREAM_FEATURE_INPUT_MOUSE) != STREAM_FEATURE_INPUT_MOUSE){
       return;
     }
 
@@ -800,8 +824,12 @@ namespace input {
   }
 
   void
-  passthrough(PSS_HSCROLL_PACKET packet) {
+  passthrough(std::shared_ptr<input_t> &input, PSS_HSCROLL_PACKET packet) {
     if (!config::input.mouse) {
+      return;
+    }
+
+    if((input->input_features & STREAM_FEATURE_INPUT_MOUSE) != STREAM_FEATURE_INPUT_MOUSE){
       return;
     }
 
@@ -809,8 +837,12 @@ namespace input {
   }
 
   void
-  passthrough(PNV_UNICODE_PACKET packet) {
+  passthrough(std::shared_ptr<input_t> &input, PNV_UNICODE_PACKET packet) {
     if (!config::input.keyboard) {
+      return;
+    }
+
+    if((input->input_features & STREAM_FEATURE_INPUT_KEYBOARD) != STREAM_FEATURE_INPUT_KEYBOARD){
       return;
     }
 
@@ -826,6 +858,10 @@ namespace input {
   void
   passthrough(std::shared_ptr<input_t> &input, PSS_CONTROLLER_ARRIVAL_PACKET packet) {
     if (!config::input.controller) {
+      return;
+    }
+
+    if((input->input_features & STREAM_FEATURE_INPUT_GAMEPAD) != STREAM_FEATURE_INPUT_GAMEPAD){
       return;
     }
 
@@ -867,6 +903,10 @@ namespace input {
   void
   passthrough(std::shared_ptr<input_t> &input, PSS_TOUCH_PACKET packet) {
     if (!config::input.mouse) {
+      return;
+    }
+
+    if((input->input_features & STREAM_FEATURE_INPUT_TOUCH) != STREAM_FEATURE_INPUT_TOUCH){
       return;
     }
 
@@ -924,6 +964,11 @@ namespace input {
       return;
     }
 
+    if((input->input_features & STREAM_FEATURE_INPUT_PEN) != STREAM_FEATURE_INPUT_PEN){
+      return;
+    }
+
+
     // Convert the client normalized coordinates to touchport coordinates
     auto coords = client_to_touchport(input,
       { from_clamped_netfloat(packet->x, 0.0f, 1.0f) * 65535.f,
@@ -980,6 +1025,10 @@ namespace input {
       return;
     }
 
+    if((input->input_features & STREAM_FEATURE_INPUT_GAMEPAD) != STREAM_FEATURE_INPUT_GAMEPAD){
+      return;
+    }
+
     if (packet->controllerNumber < 0 || packet->controllerNumber >= input->gamepads.size()) {
       BOOST_LOG(warning) << "ControllerNumber out of range ["sv << packet->controllerNumber << ']';
       return;
@@ -1011,6 +1060,10 @@ namespace input {
   void
   passthrough(std::shared_ptr<input_t> &input, PSS_CONTROLLER_MOTION_PACKET packet) {
     if (!config::input.controller) {
+      return;
+    }
+
+    if((input->input_features & STREAM_FEATURE_INPUT_GAMEPAD) != STREAM_FEATURE_INPUT_GAMEPAD){
       return;
     }
 
@@ -1047,6 +1100,10 @@ namespace input {
       return;
     }
 
+    if((input->input_features & STREAM_FEATURE_INPUT_GAMEPAD) != STREAM_FEATURE_INPUT_GAMEPAD){
+      return;
+    }
+
     if (packet->controllerNumber < 0 || packet->controllerNumber >= input->gamepads.size()) {
       BOOST_LOG(warning) << "ControllerNumber out of range ["sv << packet->controllerNumber << ']';
       return;
@@ -1070,6 +1127,10 @@ namespace input {
   void
   passthrough(std::shared_ptr<input_t> &input, PNV_MULTI_CONTROLLER_PACKET packet) {
     if (!config::input.controller) {
+      return;
+    }
+    
+    if((input->input_features & STREAM_FEATURE_INPUT_GAMEPAD) != STREAM_FEATURE_INPUT_GAMEPAD){
       return;
     }
 
@@ -1540,17 +1601,17 @@ namespace input {
         passthrough(input, (PNV_MOUSE_BUTTON_PACKET) payload);
         break;
       case SCROLL_MAGIC_GEN5:
-        passthrough((PNV_SCROLL_PACKET) payload);
+        passthrough(input, (PNV_SCROLL_PACKET) payload);
         break;
       case SS_HSCROLL_MAGIC:
-        passthrough((PSS_HSCROLL_PACKET) payload);
+        passthrough(input, (PSS_HSCROLL_PACKET) payload);
         break;
       case KEY_DOWN_EVENT_MAGIC:
       case KEY_UP_EVENT_MAGIC:
         passthrough(input, (PNV_KEYBOARD_PACKET) payload);
         break;
       case UTF8_TEXT_EVENT_MAGIC:
-        passthrough((PNV_UNICODE_PACKET) payload);
+        passthrough(input, (PNV_UNICODE_PACKET) payload);
         break;
       case MULTI_CONTROLLER_MAGIC_GEN5:
         passthrough(input, (PNV_MULTI_CONTROLLER_PACKET) payload);
@@ -1630,8 +1691,9 @@ namespace input {
   }
 
   std::shared_ptr<input_t>
-  alloc(safe::mail_t mail) {
+  alloc(safe::mail_t mail,int input_features) {
     auto input = std::make_shared<input_t>(
+      input_features,
       mail->event<input::touch_port_t>(mail::touch_port),
       mail->queue<platf::gamepad_feedback_msg_t>(mail::gamepad_feedback));
 

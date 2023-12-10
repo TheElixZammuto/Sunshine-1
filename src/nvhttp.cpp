@@ -289,6 +289,7 @@ namespace nvhttp {
     launch_session.surround_info = util::from_view(get_arg(args, "surroundAudioInfo", "196610"));
     launch_session.gcmap = util::from_view(get_arg(args, "gcmap", "0"));
     launch_session.enable_hdr = util::from_view(get_arg(args, "hdrMode", "0"));
+    launch_session.stream_features = util::from_view(get_arg(args, "streamFeatures", "4294967295"));
 
     uint32_t prepend_iv = util::endian::big<uint32_t>(util::from_view(get_arg(args, "rikeyid")));
     auto prepend_iv_p = (uint8_t *) &prepend_iv;
